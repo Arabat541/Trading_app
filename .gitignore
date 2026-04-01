@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.env
+
+# Secrets
+bot token
+
+# Data & models
+data/cache/
+models/*.pkl
+
+# Logs
+logs/
+
+# IDE
+.vscode/
+.idea/
+.env
