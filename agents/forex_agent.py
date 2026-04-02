@@ -2,6 +2,7 @@
 
 from data.forex_fetcher import get_forex_yfinance
 from strategies.forex_strategy import add_forex_indicators, generate_forex_signal
+from strategies.forex_ml_strategy import predict_forex
 from notifications.telegram import notify
 from datetime import datetime
 import json
@@ -25,7 +26,29 @@ class ForexAgent:
                 continue
 
             df = add_forex_indicators(df)
-            signal = generate_forex_signal(df, params["rsi"])
+
+            # Signal RSI classique
+            rsi_signal = generate_forex_signal(df, params["rsi"])
+
+            # Signal ML
+            try:
+                ml_signal, ml_proba = predict_forex(df, pair)
+            except FileNotFoundError:
+                ml_signal, ml_proba = "HOLD", 0.5
+
+            # Double confirmation RSI + ML
+            # Exception : XAU avec ML très confiant
+            if rsi_signal == "BUY" and ml_signal == "BUY" and ml_proba > 0.6:
+                signal = "BUY"
+            elif rsi_signal == "SELL" and ml_signal == "SELL" and ml_proba < 0.4:
+                signal = "SELL"
+            # XAU/USD — ML seul suffit si confiance > 75%
+            elif pair == "XAU_USD" and ml_signal == "BUY" and ml_proba > 0.75:
+                signal = "BUY"
+            elif pair == "XAU_USD" and ml_signal == "SELL" and ml_proba < 0.25:
+                signal = "SELL"
+            else:
+                signal = "HOLD"
 
             result = {
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -34,6 +57,8 @@ class ForexAgent:
                 "rsi": round(df["rsi"].iloc[-1], 2),
                 "macd_diff": round(df["macd_diff"].iloc[-1], 6),
                 "atr": round(df["atr"].iloc[-1], 6),
+                "ml_proba": float(ml_proba),
+                "rsi_signal": rsi_signal,
                 "signal": signal,
                 "sl": params["sl"],
                 "tp": params["tp"],
@@ -44,11 +69,11 @@ class ForexAgent:
                 icon = "🟢" if signal == "BUY" else "🔴"
                 alerts.append(
                     f"{icon} {signal} {pair}\n"
-                    f"   Prix  : {result['price']}\n"
-                    f"   RSI   : {result['rsi']}\n"
-                    f"   ATR   : {result['atr']}\n"
-                    f"   SL    : {params['sl'] * 100:.2f}%\n"
-                    f"   TP    : {params['tp'] * 100:.2f}%"
+                    f"   Prix     : {result['price']}\n"
+                    f"   RSI      : {result['rsi']}\n"
+                    f"   ML proba : {ml_proba:.1%}\n"
+                    f"   SL       : {params['sl'] * 100:.2f}%\n"
+                    f"   TP       : {params['tp'] * 100:.2f}%"
                 )
 
         if alerts:
@@ -74,10 +99,12 @@ if __name__ == "__main__":
     agent = ForexAgent()
     results = agent.run()
 
-    print(f"\n{'='*50}")
-    print(f"  💱 FOREX AGENT")
-    print(f"{'='*50}")
+    print(f"\n{'='*55}")
+    print(f"  💱 FOREX AGENT - RSI + ML")
+    print(f"{'='*55}")
     for r in results:
         icon = "🟢" if r["signal"] == "BUY" else "🔴" if r["signal"] == "SELL" else "⚪"
-        print(f"  {icon} {r['pair']:<10} {r['price']:>10}  RSI:{r['rsi']:>6}  {r['signal']}")
-    print(f"{'='*50}\n")
+        print(f"  {icon} {r['pair']:<10} {r['price']:>10}  "
+              f"RSI:{r['rsi']:>6}  ML:{r['ml_proba']:.1%}  "
+              f"RSI_sig:{r['rsi_signal']:<5}  {r['signal']}")
+    print(f"{'='*55}\n")
