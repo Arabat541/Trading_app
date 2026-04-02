@@ -6,9 +6,9 @@ from data.cache import load_cache, save_cache
 
 client = Client()
 
-def get_ohlcv(symbol="BTCUSDT", interval="4h", years=3):
-    # Vérifie le cache d'abord
-    cached = load_cache(symbol, interval)
+def get_ohlcv(symbol="BTCUSDT", interval="4h", years=3, force_refresh=False):
+    # Vérifie le cache
+    cached = load_cache(symbol, interval, force_refresh=force_refresh)
     if cached is not None:
         return cached
 
@@ -48,12 +48,5 @@ def get_ohlcv(symbol="BTCUSDT", interval="4h", years=3):
 
     print(f"  ✅ {len(df)} bougies récupérées ({df.index[0].date()} → {df.index[-1].date()})")
 
-    # Sauvegarde en cache
     save_cache(df, symbol, interval)
-
     return df
-
-if __name__ == "__main__":
-    for symbol in ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"]:
-        df = get_ohlcv(symbol=symbol)
-        print()
