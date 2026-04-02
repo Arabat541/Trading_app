@@ -19,3 +19,6 @@ logs/
 .vscode/
 .idea/
 .env
+*.png
+*.jpg
+*.jpeg
